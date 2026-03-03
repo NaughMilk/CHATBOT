@@ -5,6 +5,10 @@ pymongo
 pydantic
 langchain
 langchain-core
+langchain-google-vertexai
 langgraph
 langgraph-supervisor
 google-cloud-aiplatform
+vertexai
+gTTS
+sentence-transformers
