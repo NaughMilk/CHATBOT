@@ -29,14 +29,30 @@ load_dotenv()
 from src.utils.setup_credentials import setup_google_credentials
 setup_google_credentials()
 
-from src.agents.supervisor import run_graph_with_retry
-from src.agents.validation_agent import validate_start_intent
 PROJECT_ROOT = os.path.dirname(os.path.abspath(__file__))
 SRC_DIR = os.path.join(PROJECT_ROOT, "src")
 if SRC_DIR not in sys.path:
     sys.path.append(SRC_DIR)
 
-from src.agents.supervisor import run_graph_with_retry  # noqa: E402
+# Lazy-load agents to avoid blocking server startup
+# (model loading takes minutes on free tier)
+_run_graph = None
+_validate_intent = None
+
+def get_run_graph():
+    global _run_graph
+    if _run_graph is None:
+        from src.agents.supervisor import run_graph_with_retry
+        _run_graph = run_graph_with_retry
+    return _run_graph
+
+def get_validate_intent():
+    global _validate_intent
+    if _validate_intent is None:
+        from src.agents.validation_agent import validate_start_intent
+        _validate_intent = validate_start_intent
+    return _validate_intent
+
 
 app = FastAPI(title="chat-lis-speak API", version="0.1.0")
 
@@ -130,7 +146,7 @@ def chat(req: ChatRequest, request: Request) -> ChatResponse:
     state["thread_id"] = req.thread_id
 
     try:
-        state = run_graph_with_retry(state)
+        state = get_run_graph()(state)
     except Exception as exc:
         raise HTTPException(status_code=500, detail=str(exc))
 
@@ -240,7 +256,7 @@ def daily_status(user_id: str) -> Dict[str, Any]:
     
 @app.post("/validate-intent", response_model=ValidateIntentResponse)
 def validate_intent(req: ValidateIntentRequest) -> ValidateIntentResponse:
-    result = validate_start_intent(req.message)
+    result = get_validate_intent()(req.message)
     return ValidateIntentResponse(
         user_id=req.user_id,
         should_start=bool(result["should_start"]),

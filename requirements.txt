@@ -11,4 +11,3 @@ langgraph-supervisor
 google-cloud-aiplatform
 vertexai
 gTTS
-sentence-transformers
