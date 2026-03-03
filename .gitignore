@@ -1,0 +1,11 @@
+.env
+service_account*.json
+fe-source/node_modules/
+fe-source/dist/
+__pycache__/
+*.pyc
+.DS_Store
+.venv/
+venv/
+*.faiss
+faiss.index
