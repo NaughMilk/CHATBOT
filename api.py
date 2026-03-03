@@ -150,10 +150,16 @@ def chat(req: ChatRequest, request: Request) -> ChatResponse:
     except Exception as exc:
         raise HTTPException(status_code=500, detail=str(exc))
 
+    # CRITICAL: Store the returned state back into session cache
+    # The graph returns a NEW dict; without this, the next request
+    # would use the OLD state (missing AI responses) → supervisor repeats greeting
     state["user_id"] = req.user_id
     state["thread_id"] = req.thread_id
     state.setdefault("chat_history", [])
     state.setdefault("messages", [])
+    key = (req.user_id, req.thread_id)
+    with _state_lock:
+        _session_states[key] = state
 
     hist = state.get("chat_history", [])
     last_ai = next((m for m in reversed(hist) if isinstance(m, AIMessage)), None)
