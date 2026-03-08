@@ -52,7 +52,7 @@ def _choice_from_text(text: str) -> Optional[str]:
 def score_step(phase: str, expected: Dict[str, Any], user_text: Optional[str]) -> Dict[str, Any]:
     answer = _norm(user_text)
     if not answer:
-        return {"passed": False, "feedback": "Minh chua nghe ro. Ban noi lai nhe."}
+        return {"passed": False, "feedback": "Mình chưa nghe rõ. Bạn nói lại nhé."}
 
     if phase == "learn_vocab":
         raw_expected = expected.get("word") or ""
@@ -77,13 +77,11 @@ def score_step(phase: str, expected: Dict[str, Any], user_text: Optional[str]) -
             tgt_tokens = _tokens(prompt_en)
             ans_tokens = _tokens(user_text or "")
             if not ans_tokens:
-                return {"passed": False, "feedback": "Minh chua nghe ro. Ban noi lai nhe."}
+                return {"passed": False, "feedback": "Mình chưa nghe rõ. Bạn nói lại nhé."}
+            
+            # Case-insensitive comparison (ignore capitalization and punctuation)
             if ans_tokens == tgt_tokens:
-                has_punct = bool(re.search(r"[.!?]\s*$", (user_text or "").strip()))
-                starts_upper = bool(re.match(r"^[A-Z]", (user_text or "").strip()))
-                if not starts_upper or not has_punct:
-                    return {"passed": False, "feedback": "Ban nhieu gan dung roi. Chu y viet hoa dau cau va dau cau cuoi nhe."}
-                return {"passed": True, "feedback": "Tuyet voi! Ban da noi dung roi."}
+                return {"passed": True, "feedback": "Tuyệt vời! Bạn đã nói đúng rồi."}
 
             sm = SequenceMatcher(None, tgt_tokens, ans_tokens)
             wrong_pairs = []
@@ -98,16 +96,16 @@ def score_step(phase: str, expected: Dict[str, Any], user_text: Optional[str]) -
                 wrong = (wrong or "").lower()
                 correct = (correct or "").lower()
                 if correct and wrong:
-                    fb = f"Ban sai tu: '{wrong}' can '{correct}'. Ban thu lai nhe."
+                    fb = f"Bạn sai từ: '{wrong}' cần '{correct}'. Bạn thử lại nhé."
                 elif correct and not wrong:
-                    fb = f"Ban con thieu tu: '{correct}'. Ban thu lai nhe."
+                    fb = f"Bạn còn thiếu từ: '{correct}'. Bạn thử lại nhé."
                 else:
-                    fb = f"Ban thua tu: '{wrong}'. Ban thu lai nhe."
+                    fb = f"Bạn thừa từ: '{wrong}'. Bạn thử lại nhé."
                 return {"passed": False, "feedback": fb}
-            return {"passed": False, "feedback": "Ban noi chua dung. Ban thu lai nhe."}
+            return {"passed": False, "feedback": "Bạn nói chưa đúng. Bạn thử lại nhé."}
 
         passed = word_count >= 6
-        feedback = "Tot. Ban noi day du." if passed else "Ban noi them chut nua nhe."
+        feedback = "Tốt. Bạn nói đầy đủ." if passed else "Bạn nói thêm chút nữa nhé."
         return {"passed": passed, "feedback": feedback}
 
     if phase == "evaluation_material":
@@ -115,7 +113,7 @@ def score_step(phase: str, expected: Dict[str, Any], user_text: Optional[str]) -
         if q_type == "multiple_choice":
             choice = _choice_from_text(user_text or "")
             if not choice:
-                return {"passed": False, "feedback": "Ban can chon A, B, C hoac D nhe."}
+                return {"passed": False, "feedback": "Bạn cần chọn A, B, C hoặc D nhé."}
 
             key = expected.get("answer_key")
             print(key, choice)
@@ -124,18 +122,18 @@ def score_step(phase: str, expected: Dict[str, Any], user_text: Optional[str]) -
     # 1) Nếu answer_key là letter A/B/C/D
             if key in {"A", "B", "C", "D"}:
                 passed = (choice == key)
-                return {"passed": passed, "feedback": "Chinh xac." if passed else "Chua dung. Ban thu lai nhe."}
+                return {"passed": passed, "feedback": "Chính xác." if passed else "Chưa đúng. Bạn thử lại nhé."}
 
     # 2) Nếu answer_key là TEXT (vd: "Watching movies") -> map letter -> text rồi so
             idx = ord(choice) - ord("A")
             picked = choices[idx] if 0 <= idx < len(choices) else ""
             passed = _norm(picked) == _norm(expected.get("answer_key") or "")
-            return {"passed": passed, "feedback": "Chinh xac." if passed else "Chua dung. Ban thu lai nhe."}
+            return {"passed": passed, "feedback": "Chính xác." if passed else "Chưa đúng. Bạn thử lại nhé."}
 
         target = _norm(expected.get("answer_key") or "")
         ratio = _similarity(target, answer)
         passed = ratio >= 0.7
-        feedback = "Tot." if passed else "Minh nghe chua dung. Ban thu lai nhe."
+        feedback = "Tốt." if passed else "Mình nghe chưa đúng. Bạn thử lại nhé."
         return {"passed": passed, "feedback": feedback}
 
-    return {"false": True, "feedback": "Minh chua co tieu chi cham cho buoc nay."}
+    return {"false": True, "feedback": "Mình chưa có tiêu chí chấm cho bước này."}

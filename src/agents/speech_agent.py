@@ -632,7 +632,7 @@ def speech_step(user_id: str, thread_id: str, user_text: Optional[str] = None) -
     thread_blob = db_get_thread.invoke({"user_id": user_id, "thread_id": thread_id}) or {}
     plan = _get_plan_from_thread(thread_blob)
     if not plan:
-        return "Hien chua co bai hoc trong he thong. Minh can tao bai truoc, ban thu lai sau nhe."
+        return "Hiện chưa có bài học trong hệ thống. Mình cần tạo bài trước, bạn thử lại sau nhé."
 
     # Reset on new usage day (based on user_profile)
     today = datetime.utcnow().date().isoformat()
@@ -669,22 +669,22 @@ def speech_step(user_id: str, thread_id: str, user_text: Optional[str] = None) -
                 "fields_json": json.dumps({"speech_progress": progress}, ensure_ascii=False)
             })
         else:
-            return "Bai hom nay da ket thuc. Minh dang tinh diem, ban cho minh mot chut nhe."
+            return "Bài hôm nay đã kết thúc. Mình đang tính điểm, bạn chờ mình một chút nhé."
 
     # ===== A) Nếu đang chờ trả lời =====
     if progress.get("awaiting_answer"):
         if not user_text or not str(user_text).strip():
-            return "Minh dang cho cau tra loi. Ban noi lai nhe."
+            return "Mình đang chờ câu trả lời. Bạn nói lại nhé."
 
         # repeat passage: đọc lại passage, KHÔNG chấm, KHÔNG đổi progress
         if _is_repeat_passage_cmd(user_text):
             unit = _render_passage_unit(plan, progress)
-            return f"Duoc nhe. Minh doc lai passage:\n\n{unit}"
+            return f"Được nhé. Mình đọc lại passage:\n\n{unit}"
 
         # repeat: chỉ đọc lại step, KHÔNG chấm, KHÔNG đổi progress
         if _is_repeat_cmd(user_text):
             unit = _render_one_unit(plan, progress)
-            return f"Duoc nhe. Minh nhac lai buoc nay:\n\n{unit}"
+            return f"Được nhé. Mình nhắc lại bước này:\n\n{unit}"
 
         # skip/tiếp: nhảy bước
         if _is_skip_cmd(user_text):
@@ -697,7 +697,7 @@ def speech_step(user_id: str, thread_id: str, user_text: Optional[str] = None) -
                 "fields_json": json.dumps({"speech_progress": new_progress}, ensure_ascii=False)
             })
             if new_progress.get("done"):
-                return "Bai hom nay da ket thuc. Minh dang tinh diem, ban cho minh mot chut nhe."
+                return "Bài hôm nay đã kết thúc. Mình đang tính điểm, bạn chờ mình một chút nhé."
             return _render_one_unit(plan, new_progress)
 
         expected = _get_expected_for_step(plan, progress)
@@ -721,7 +721,7 @@ def speech_step(user_id: str, thread_id: str, user_text: Optional[str] = None) -
                 "fields_json": json.dumps({"speech_progress": new_progress}, ensure_ascii=False)
             })
             if new_progress.get("done"):
-                return "Bai hom nay da ket thuc. Minh dang tinh diem, ban cho minh mot chut nhe."
+                return "Bài hôm nay đã kết thúc. Mình đang tính điểm, bạn chờ mình một chút nhé."
             return _render_one_unit(plan, new_progress)
 
         # ===== B) Chấm điểm =====
@@ -800,8 +800,8 @@ def speech_step(user_id: str, thread_id: str, user_text: Optional[str] = None) -
         chk = db_get_thread.invoke({"user_id": user_id, "thread_id": thread_id}) or {}
         print(f"[CALL {_call_id}] AFTER_SAVE(correct) speech_progress={chk.get('speech_progress')}", flush=True)
         if new_progress.get("done"):
-            fb = result.get("feedback") or "Tot."
-            return f"{fb}\n\nBai hom nay da ket thuc. Minh dang tinh diem, ban cho minh mot chut nhe."
+            fb = result.get("feedback") or "Tốt."
+            return f"{fb}\n\nBài hôm nay đã kết thúc. Mình đang tính điểm, bạn chờ mình một chút nhé."
 
         fb = result.get("feedback")
         if fb:
