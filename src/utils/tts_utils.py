@@ -1,11 +1,8 @@
-"""
-Google Cloud Text-to-Speech with SSML support.
-Handles mixed Vietnamese / English / IPA in a single audio stream.
-"""
-
 import io
+import json
 import os
 import re
+import tempfile
 from typing import List, Tuple
 
 from google.cloud import texttospeech
@@ -19,13 +16,27 @@ def _get_client() -> texttospeech.TextToSpeechClient:
     if _TTS_CLIENT is not None:
         return _TTS_CLIENT
 
+    # Priority 1: local file (dev)
     sa_path = os.getenv("TTS_SERVICE_ACCOUNT", "")
     if sa_path and os.path.isfile(sa_path):
         creds = service_account.Credentials.from_service_account_file(sa_path)
         _TTS_CLIENT = texttospeech.TextToSpeechClient(credentials=creds)
-    else:
-        # fallback: default credentials (GOOGLE_APPLICATION_CREDENTIALS)
-        _TTS_CLIENT = texttospeech.TextToSpeechClient()
+        return _TTS_CLIENT
+
+    # Priority 2: JSON string in env var (cloud deploy, e.g. Render)
+    sa_json = os.getenv("TTS_SA_JSON", "")
+    if sa_json:
+        try:
+            info = json.loads(sa_json)
+            creds = service_account.Credentials.from_service_account_info(info)
+            _TTS_CLIENT = texttospeech.TextToSpeechClient(credentials=creds)
+            print("[TTS] Using credentials from TTS_SA_JSON env var", flush=True)
+            return _TTS_CLIENT
+        except Exception as e:
+            print(f"[TTS] Failed to parse TTS_SA_JSON: {e}", flush=True)
+
+    # Priority 3: default credentials (GOOGLE_APPLICATION_CREDENTIALS)
+    _TTS_CLIENT = texttospeech.TextToSpeechClient()
     return _TTS_CLIENT
 
 
