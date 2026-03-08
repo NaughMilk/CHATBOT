@@ -9,7 +9,7 @@ from tools.memory_tools import (
 )
 
 planner_model = load_chat_model(
-    "google_vertexai/gemini-3.0-flash",
+    "google_vertexai/gemini-2.5-flash",
     tags=["planner"],
     temperature=0.2,
 )

@@ -13,7 +13,7 @@ from agents.score_agent import score_step
 
 
 speech_model = load_chat_model(
-    "google_vertexai/gemini-3.0-flash",
+    "google_vertexai/gemini-2.5-flash",
     tags=["speech_agent"],
     temperature=0.2,
 )
