@@ -26,18 +26,36 @@ def _strip_markdown(text: str) -> str:
 
 
 def extract_clean_text(content) -> str:
-    """Extract clean text from Gemini response."""
+    """Extract clean text from Gemini response.
+
+    Handles various content formats:
+    - str: plain text
+    - list of str: join all
+    - list of dicts: extract 'text' from all text-type items, skip binary/image
+    """
     if not content:
         return ""
-    
+
     if isinstance(content, str):
         return _strip_markdown(content)
-    
+
     if isinstance(content, list):
+        text_parts = []
         for item in content:
-            if isinstance(item, dict) and 'text' in item:
-                return _strip_markdown(item['text'])
+            if isinstance(item, dict):
+                # Only extract text-type parts, skip image/tool_use/binary
+                item_type = item.get('type', '')
+                if 'text' in item and item_type in ('text', ''):
+                    text_parts.append(item['text'])
             elif isinstance(item, str):
-                return _strip_markdown(item)
-    
-    return _strip_markdown(str(content)) if content else ""
+                text_parts.append(item)
+            # Skip anything else (binary data, image blocks, etc.)
+
+        if text_parts:
+            return _strip_markdown("\n".join(text_parts))
+
+    # Last resort: try to get .content or .text attribute
+    if hasattr(content, 'text'):
+        return _strip_markdown(str(content.text))
+
+    return ""

@@ -10,7 +10,7 @@ from tools.memory_tools import (
 )
 
 memory_model = load_chat_model(
-    "google_vertexai/gemini-2.5-flash",
+    "google_vertexai/gemini-3.0-flash",
     tags=["memory_agent"],
     temperature=0.0,
 )

@@ -38,7 +38,7 @@ init_memory_tools(memory_store)
 
 # ===== MODEL =====
 model = load_chat_model(
-    "google_vertexai/gemini-2.5-flash",
+    "google_vertexai/gemini-3.0-flash",
     tags=["supervisor"],
     temperature=0.0,
 )
@@ -126,7 +126,13 @@ PLANNER RULES (MANDATORY)
 CONSTRAINTS
 - Do not mention internal agent/tool names in the final user-facing response.
 - If the user asks technical/code questions, respond briefly and steer back to the learning goal.
-Important: When speaking to the end user, always respond in Vietnamese (voice-friendly), even though these instructions are in English.
+
+CRITICAL LANGUAGE RULE:
+- Always respond in Vietnamese (voice-friendly) with FULL DIACRITICS (dấu tiếng Việt).
+- NEVER write Vietnamese without diacritics. Example:
+  WRONG: "Ban tra loi dung roi, rat tot!"
+  RIGHT: "Bạn trả lời đúng rồi, rất tốt!"
+- Every Vietnamese word MUST have correct diacritics. This is non-negotiable.
 """
 
 # ===== State Schema =====

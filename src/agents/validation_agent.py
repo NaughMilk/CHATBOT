@@ -108,7 +108,7 @@ def _get_classifier_llm():
     from utils.load_model import load_chat_model
 
     _CLASSIFIER_LLM = load_chat_model(
-        "google_vertexai/gemini-2.5-flash",
+        "google_vertexai/gemini-3.0-flash",
         tags=["validation"],
         temperature=0.0,
     )

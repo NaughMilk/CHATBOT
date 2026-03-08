@@ -13,7 +13,7 @@ from agents.score_agent import score_step
 
 
 speech_model = load_chat_model(
-    "google_vertexai/gemini-2.5-flash",
+    "google_vertexai/gemini-3.0-flash",
     tags=["speech_agent"],
     temperature=0.2,
 )
@@ -29,6 +29,7 @@ QUY TẮC:
 - Kết thúc bằng yêu cầu người học phản hồi.
 - KHÔNG bịa nội dung, chỉ dùng dữ liệu có trong DB.
 - Luôn dùng đúng user_id và thread_id từ input.
+- LUÔN viết tiếng Việt CÓ DẤU đầy đủ, KHÔNG BAO GIỜ viết thiếu dấu.
 """
 
 speech_agent = create_react_agent(
@@ -138,7 +139,8 @@ def _llm_coach_hint(
         "QUY TẮC: Không bịa nội dung ngoài dữ liệu được cung cấp. "
         "Không nói lan man. 1-3 câu. Kết thúc bằng yêu cầu học viên thử lại. "
         "Nếu attempts >= 2 thì cho gợi ý rõ hơn (ví dụ: đưa khung câu có chỗ trống, "
-        "hoặc nhắc 3-5 từ đầu của câu đúng), nhưng tránh đọc lại toàn bộ đáp án nếu không cần."
+        "hoặc nhắc 3-5 từ đầu của câu đúng), nhưng tránh đọc lại toàn bộ đáp án nếu không cần. "
+        "LUÔN viết tiếng Việt CÓ DẤU đầy đủ, KHÔNG BAO GIỜ viết thiếu dấu."
     ))
     hm = HumanMessage(content=json.dumps({
         "phase": phase,
@@ -153,7 +155,7 @@ def _llm_coach_hint(
         return (getattr(msg, "content", "") or "").strip()
     except Exception:
         # fallback an toan
-        return "Chua dung lam. Ban thu lai nhe."
+        return "Chưa đúng lắm. Bạn thử lại nhé."
 
 def _parse_json_from_text(text: str) -> Optional[Dict[str, Any]]:
     if not text:
@@ -177,7 +179,7 @@ def _llm_check_key_vocab(expected: Dict[str, Any], user_text: str) -> Dict[str, 
     meaning = (expected.get("meaning_vi") or "").strip()
     example = (expected.get("example") or "").strip()
     if not item:
-        return {"passed": False, "feedback": "Minh chua co tu vung de cham."}
+        return {"passed": False, "feedback": "Mình chưa có từ vựng để chấm."}
 
     sys = SystemMessage(content=(
     "You are an English tutor grading a learner's sentence for a target vocabulary word.\n"
@@ -204,9 +206,9 @@ def _llm_check_key_vocab(expected: Dict[str, Any], user_text: str) -> Dict[str, 
     "Output STRICT JSON ONLY (no extra text):\n"
     "{\"passed\": true/false, \"feedback\": \"...\"}\n"
     "Feedback rules:\n"
-    "- Vietnamese WITHOUT diacritics (unaccented).\n"
+    "- Vietnamese WITH FULL DIACRITICS (accented). Example: 'Bạn trả lời đúng rồi!' not 'Ban tra loi dung roi!'.\n"
     "- 1 short sentence. Friendly.\n"
-    "- If FAIL, tell them what to fix (chu ngu + dong tu; hoac dua khung: 'I ... education ...').\n"
+    "- If FAIL, tell them what to fix (chủ ngữ + động từ; hoặc đưa khung: 'I ... education ...').\n"
 ))
     hm = HumanMessage(content=json.dumps({
         "target_vocab": item,
@@ -220,7 +222,7 @@ def _llm_check_key_vocab(expected: Dict[str, Any], user_text: str) -> Dict[str, 
         passed = bool(data.get("passed"))
         feedback = (data.get("feedback") or "").strip()
         if not feedback:
-            feedback = "Dung roi." if passed else "Chua dung, ban dat lai cau nhe."
+            feedback = "Đúng rồi." if passed else "Chưa đúng, bạn đặt lại câu nhé."
         return {"passed": passed, "feedback": feedback}
     except Exception:
         # fallback: simple contains
@@ -230,12 +232,12 @@ def _llm_check_key_vocab(expected: Dict[str, Any], user_text: str) -> Dict[str, 
         verbs = {"am","is","are","was","were","be","been","being","do","does","did","have","has","had","can","could","will","would","should","may","might","must"}
         has_verb = any(w in verbs for w in words)
         passed = has_vocab and len(words) >= 4 and has_verb
-        feedback = "Dung roi." if passed else "Chua dung, ban dat lai cau nhe."
+        feedback = "Đúng rồi." if passed else "Chưa đúng, bạn đặt lại câu nhé."
         return {"passed": passed, "feedback": feedback}
 
 def _llm_check_speaking_prompt(prompt_en: str, user_text: str) -> Dict[str, Any]:
     if not prompt_en:
-        return {"passed": False, "feedback": "Minh chua co prompt de cham."}
+        return {"passed": False, "feedback": "Mình chưa có prompt để chấm."}
     sys = SystemMessage(content=(
     "You are an English tutor grading whether the learner's response is relevant to the given speaking prompt.\n"
     "You MUST decide PASS/FAIL using ONLY the provided fields.\n"
@@ -256,9 +258,9 @@ def _llm_check_speaking_prompt(prompt_en: str, user_text: str) -> Dict[str, Any]
     "Return STRICT JSON ONLY (no extra text):\n"
     "{\"passed\": true/false, \"feedback\": \"...\"}\n"
     "Feedback rules:\n"
-    "- Vietnamese WITHOUT diacritics (unaccented).\n"
+    "- Vietnamese WITH FULL DIACRITICS (accented). Example: 'Bạn cần mô tả phim và nói lý do bạn thích.' not 'Ban can mo ta phim va noi ly do ban thich.'.\n"
     "- 1 short friendly sentence.\n"
-    "- If FAIL, say what is missing (vi du: 'can mo ta phim va noi ly do ban thich').\n"
+    "- If FAIL, say what is missing.\n"
 ))
     hm = HumanMessage(content=json.dumps({
         "prompt": prompt_en,
@@ -270,11 +272,11 @@ def _llm_check_speaking_prompt(prompt_en: str, user_text: str) -> Dict[str, Any]
         passed = bool(data.get("passed"))
         feedback = (data.get("feedback") or "").strip()
         if not feedback:
-            feedback = "Dung roi." if passed else "Ban tra loi chua dung huong. Ban thu lai nhe."
+            feedback = "Đúng rồi." if passed else "Bạn trả lời chưa đúng hướng. Bạn thử lại nhé."
         return {"passed": passed, "feedback": feedback}
     except Exception:
         # fallback: accept to avoid blocking
-        return {"passed": True, "feedback": "Tot. Ban noi day du."}
+        return {"passed": True, "feedback": "Tốt. Bạn nói đầy đủ."}
 
 def _first_sentence(text: str) -> str:
     if not text:

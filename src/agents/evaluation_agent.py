@@ -10,7 +10,7 @@ from memory.config import MemoryStoreMongo
 
 
 evaluation_model = load_chat_model(
-    "google_vertexai/gemini-2.5-flash",
+    "google_vertexai/gemini-3.0-flash",
     tags=["evaluation_agent"],
     temperature=0.0,
 )
