@@ -1,4 +1,4 @@
-﻿import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { useEffect, useRef, useState } from "react";
 import API_URL from "../config";
 
@@ -51,98 +51,8 @@ export default function Conversation() {
   // idle | listening | sending | speaking
   const phaseRef = useRef("idle");
 
+
   // ====== Helpers ======
-  const VI_DIACRITIC_RE = /[À-ỹ]/;
-
-  const isEnglishish = (value) => {
-    const text = value || "";
-    if (VI_DIACRITIC_RE.test(text)) return false;
-    const words = text.match(/[A-Za-z]{2,}/g) || [];
-    return words.length >= 4;
-  };
-
-  const detectLang = (value) => (isEnglishish(value) ? "en-US" : "vi-VN");
-
-  const splitQuotedSegments = (value, forcedLang) => {
-    const text = value || "";
-    const re = /(['"])(.*?)\1/g;
-    const segments = [];
-    let last = 0;
-    let match = null;
-
-    while ((match = re.exec(text)) !== null) {
-      const before = text.slice(last, match.index);
-      if (before.trim()) {
-        segments.push({ text: before, lang: forcedLang || detectLang(before) });
-      }
-
-      const inner = match[2];
-      if (inner.trim()) {
-        segments.push({ text: inner, lang: "en-US" });
-      }
-
-      last = match.index + match[0].length;
-    }
-
-    const tail = text.slice(last);
-    if (tail.trim()) {
-      segments.push({ text: tail, lang: forcedLang || detectLang(tail) });
-    }
-
-    return segments;
-  };
-
-  const splitBilingualSegments = (value) => {
-    const text = value || "";
-    const sentenceChunks = text.match(/[^.!?]+[.!?]*/g) || [text];
-    const segments = [];
-
-    sentenceChunks.forEach((chunk) => {
-      const sentence = chunk.trim();
-      if (!sentence) return;
-
-      const colonIndex = sentence.indexOf(":");
-      if (colonIndex !== -1) {
-        const head = sentence.slice(0, colonIndex + 1);
-        const tail = sentence.slice(colonIndex + 1);
-        if (tail.trim() && isEnglishish(tail)) {
-          segments.push(...splitQuotedSegments(head));
-          segments.push(...splitQuotedSegments(tail, "en-US"));
-          return;
-        }
-      }
-
-      const parenRe = /\([^)]*\)/g;
-      let last = 0;
-      let match = null;
-
-      while ((match = parenRe.exec(sentence)) !== null) {
-        const before = sentence.slice(last, match.index);
-        if (before.trim()) {
-          segments.push(...splitQuotedSegments(before));
-        }
-
-        const inner = match[0].slice(1, -1);
-        if (inner.trim()) {
-          segments.push({ text: inner, lang: "en-US" });
-        }
-
-        last = match.index + match[0].length;
-      }
-
-      const tail = sentence.slice(last);
-      if (tail.trim()) {
-        segments.push(...splitQuotedSegments(tail));
-      }
-    });
-
-    if (segments.length === 0 && text.trim()) {
-      segments.push({ text, lang: detectLang(text) });
-    }
-
-    return segments;
-  };
-
   const clearSpeechFallback = () => {
     if (speechFallbackRef.current) {
       clearTimeout(speechFallbackRef.current);
@@ -226,107 +136,8 @@ export default function Conversation() {
     }
   };
 
-  // ====== Google Translate TTS for Vietnamese ======
+  // ====== Backend TTS (Google Cloud TTS with SSML) ======
   const activeAudioRef = useRef(null);
-
-  const speakVietnameseChunk = (text) => {
-    return new Promise((resolve) => {
-      const encoded = encodeURIComponent(text);
-      const url = `${API_URL}/tts?text=${encoded}&lang=vi`;
-      const audio = new Audio(url);
-      activeAudioRef.current = audio;
-      audio.playbackRate = 1.0;
-      audio.onended = () => {
-        activeAudioRef.current = null;
-        resolve();
-      };
-      audio.onerror = () => {
-        activeAudioRef.current = null;
-        resolve(); // continue even on error
-      };
-      audio.play().catch(() => {
-        activeAudioRef.current = null;
-        resolve();
-      });
-    });
-  };
-
-  // Split long Vietnamese text into chunks (~180 chars max per request)
-  const chunkViText = (text, maxLen = 180) => {
-    if (text.length <= maxLen) return [text];
-    const chunks = [];
-    // Split on sentence boundaries first
-    const sentences = text.match(/[^.!?]+[.!?]*/g) || [text];
-    let current = "";
-    for (const s of sentences) {
-      if ((current + s).length > maxLen && current) {
-        chunks.push(current.trim());
-        current = s;
-      } else {
-        current += s;
-      }
-    }
-    if (current.trim()) chunks.push(current.trim());
-    // If any chunk is still too long, hard split on commas/spaces
-    const final = [];
-    for (const c of chunks) {
-      if (c.length <= maxLen) {
-        final.push(c);
-      } else {
-        const parts = c.match(new RegExp(`.{1,${maxLen}}(\\s|,|$)`, "g")) || [c];
-        final.push(...parts.map((p) => p.trim()).filter(Boolean));
-      }
-    }
-    return final;
-  };
-
-  // English voice selection (Web Speech API)
-  const enVoiceCacheRef = useRef(null);
-
-  const getBestEnVoice = () => {
-    if (enVoiceCacheRef.current) return enVoiceCacheRef.current;
-    const synth = window.speechSynthesis;
-    if (!synth) return null;
-    const voices = synth.getVoices();
-    const enVoices = voices.filter(
-      (v) => v.lang === "en-US" || v.lang === "en-GB" || v.lang.startsWith("en")
-    );
-    if (enVoices.length > 0) {
-      const msVoice = enVoices.find((v) => /Microsoft/i.test(v.name));
-      if (msVoice) { enVoiceCacheRef.current = msVoice; return msVoice; }
-      const googleVoice = enVoices.find((v) => /Google/i.test(v.name));
-      if (googleVoice) { enVoiceCacheRef.current = googleVoice; return googleVoice; }
-      enVoiceCacheRef.current = enVoices[0];
-      return enVoices[0];
-    }
-    return null;
-  };
-
-  useEffect(() => {
-    const synth = window.speechSynthesis;
-    if (!synth) return;
-    const load = () => { enVoiceCacheRef.current = null; getBestEnVoice(); };
-    load();
-    synth.addEventListener("voiceschanged", load);
-    return () => synth.removeEventListener("voiceschanged", load);
-  }, []);
-
-  // Speak one English segment via Web Speech API (returns a Promise)
-  const speakEnglishSeg = (text) => {
-    return new Promise((resolve) => {
-      const synth = window.speechSynthesis;
-      if (!synth) { resolve(); return; }
-      const utter = new SpeechSynthesisUtterance(text);
-      utter.lang = "en-US";
-      const voice = getBestEnVoice();
-      if (voice) utter.voice = voice;
-      utter.rate = 0.9;
-      utter.pitch = 1.0;
-      utter.onend = () => resolve();
-      utter.onerror = () => resolve();
-      synth.speak(utter);
-    });
-  };
 
   const speakText = (text) => {
     const t = (text || "").trim();
@@ -347,18 +158,16 @@ export default function Conversation() {
 
     stopListening();
 
-    // Cancel any ongoing speech
-    if (window.speechSynthesis) window.speechSynthesis.cancel();
+    // Cancel any ongoing audio
     if (activeAudioRef.current) {
       activeAudioRef.current.pause();
       activeAudioRef.current = null;
     }
 
-    const segments = splitBilingualSegments(t);
-
     const finishSpeaking = () => {
       if (activeSpeechSeqRef.current !== speechSeq) return;
       isAgentSpeakingRef.current = false;
+      activeAudioRef.current = null;
       clearSpeechFallback();
       phaseRef.current = "idle";
       if (!lockedRef.current && autoListenRef.current) {
@@ -366,44 +175,40 @@ export default function Conversation() {
       }
     };
 
-    // Speak all segments sequentially using async/await
-    const speakAll = async () => {
-      for (const seg of segments) {
-        if (activeSpeechSeqRef.current !== speechSeq) return;
+    // Send ALL text to backend /tts → get MP3 → play
+    const encoded = encodeURIComponent(t);
+    const url = `${API_URL}/tts?text=${encoded}`;
+    const audio = new Audio(url);
+    activeAudioRef.current = audio;
 
-        const segText = (seg.text || "").trim();
-        if (!segText) continue;
-
-        if (seg.lang === "vi-VN") {
-          // Use Google Translate TTS for Vietnamese
-          const chunks = chunkViText(segText);
-          for (const chunk of chunks) {
-            if (activeSpeechSeqRef.current !== speechSeq) return;
-            await speakVietnameseChunk(chunk);
-          }
-        } else {
-          // Use Web Speech API for English
-          await speakEnglishSeg(segText);
-        }
-      }
+    audio.onended = () => {
+      if (activeSpeechSeqRef.current !== speechSeq) return;
       finishSpeaking();
     };
 
-    speakAll();
+    audio.onerror = () => {
+      if (activeSpeechSeqRef.current !== speechSeq) return;
+      console.warn("[TTS] Audio playback error, finishing speaking");
+      finishSpeaking();
+    };
 
-    const approxMs = Math.min(30000, Math.max(2000, t.length * 70));
-    let retryLeft = 30;
+    audio.play().catch(() => {
+      if (activeSpeechSeqRef.current !== speechSeq) return;
+      console.warn("[TTS] Audio play() failed, finishing speaking");
+      finishSpeaking();
+    });
+
+    // Fallback timer: if audio hasn't ended after approxMs, force finish
+    const approxMs = Math.min(30000, Math.max(3000, t.length * 80));
+    let retryLeft = 20;
     const fallbackTick = () => {
       if (activeSpeechSeqRef.current !== speechSeq) return;
-      const synth = window.speechSynthesis;
-      const synthBusy = synth && (synth.speaking || synth.pending);
       const audioBusy = activeAudioRef.current && !activeAudioRef.current.paused;
-      if (synthBusy || audioBusy) {
+      if (audioBusy) {
         if (retryLeft > 0) {
           retryLeft -= 1;
           speechFallbackRef.current = setTimeout(fallbackTick, 500);
         } else {
-          // Force finish after max retries
           finishSpeaking();
         }
         return;

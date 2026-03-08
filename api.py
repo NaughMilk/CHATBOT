@@ -272,24 +272,23 @@ def validate_intent(req: ValidateIntentRequest) -> ValidateIntentResponse:
     )
 
 @app.get("/tts")
-def tts_endpoint(text: str, lang: str = "vi"):
-    """Generate TTS audio via gTTS and stream as MP3."""
+def tts_endpoint(text: str):
+    """Generate TTS audio via Google Cloud TTS with SSML (mixed Anh/Việt/IPA)."""
     if not text or not text.strip():
         raise HTTPException(status_code=400, detail="text is empty")
-    if len(text) > 500:
+    if len(text) > 2000:
         raise HTTPException(status_code=400, detail="text too long")
-    from gtts import gTTS
-    from fastapi.responses import StreamingResponse
-    import io
+    from fastapi.responses import Response
+    from src.utils.tts_utils import synthesize_speech
     try:
-        tts_obj = gTTS(text=text.strip(), lang=lang, slow=False)
-        buf = io.BytesIO()
-        tts_obj.write_to_fp(buf)
-        buf.seek(0)
-        return StreamingResponse(buf, media_type="audio/mpeg", headers={
-            "Cache-Control": "public, max-age=3600",
-        })
+        audio_bytes = synthesize_speech(text.strip())
+        return Response(
+            content=audio_bytes,
+            media_type="audio/mpeg",
+            headers={"Cache-Control": "public, max-age=3600"},
+        )
     except Exception as exc:
+        print(f"[TTS] Error: {exc}", flush=True)
         raise HTTPException(status_code=500, detail=str(exc))
 
 if __name__ == "__main__":
