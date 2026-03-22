@@ -226,8 +226,12 @@ def evaluate_and_store_session(
     }
     memory_store.append_session_record(user_id, record)
     attempts_by_day[str(day_index)] = new_attempt
+
+    # Advance to next day (max 4) immediately after completing a day
+    next_day = min(day_index + 1, 4)
     memory_store.update_thread_fields(user_id, thread_id, {
         "session_attempts_by_day": attempts_by_day,
+        "current_day": next_day,
         "last_session_logged": {
             "thread_id": thread_id,
             "day_index": day_index,
