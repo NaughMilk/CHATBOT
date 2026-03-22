@@ -236,21 +236,46 @@ def signup(req: SignupRequest) -> SignupResponse:
 
 
 @app.get("/progress")
-def progress(user_id: str) -> Dict[str, int]:
+def progress(user_id: str):
     if not user_id:
         raise HTTPException(status_code=400, detail="user_id is required")
     doc = user_profiles.find_one({"user_id": user_id}, {"session_records": 1})
     records = (doc or {}).get("session_records") or []
-    max_day = 0
+
+    # Build best record per day
+    day_details = {}
     for r in records:
         try:
             day = int(r.get("day_index", 0))
         except Exception:
             day = 0
-        if day > max_day:
-            max_day = day
+        if day < 1:
+            continue
+        score = r.get("overall_score")
+        try:
+            score = int(score) if score is not None else None
+        except Exception:
+            score = None
+        existing = day_details.get(day)
+        if not existing or (score is not None and (existing.get("score") is None or score > existing["score"])):
+            topic = ""
+            plan = r.get("plan") or {}
+            if isinstance(plan, dict):
+                topic = (plan.get("meta") or {}).get("selected_topic", "")
+            day_details[day] = {
+                "day": day,
+                "score": score,
+                "topic": topic,
+                "date": r.get("date", ""),
+            }
+
+    max_day = max(day_details.keys()) if day_details else 0
     current_day = min(max_day + 1, 4) if max_day else 1
-    return {"completed_days": max_day, "current_day": current_day}
+    return {
+        "completed_days": max_day,
+        "current_day": current_day,
+        "day_details": [day_details.get(d) for d in range(1, 5) if day_details.get(d)],
+    }
 
 
 @app.get("/daily-status")

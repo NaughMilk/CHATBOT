@@ -7,6 +7,7 @@ export default function Menu() {
   const [progress, setProgress] = useState({
     completed_days: 0,
     current_day: 1,
+    day_details: [],
   });
   const [listening, setListening] = useState(false);
   const [voiceText, setVoiceText] = useState("");
@@ -125,6 +126,7 @@ export default function Menu() {
         setProgress({
           completed_days: Number(data.completed_days || 0),
           current_day: Number(data.current_day || 1),
+          day_details: data.day_details || [],
         });
       } catch (err) {
         if (err.name !== "AbortError") {
@@ -209,8 +211,6 @@ export default function Menu() {
     };
   }, []);
 
-  const isNewUser = progress.completed_days === 0;
-  const highlightUpTo = isNewUser ? 0 : Math.min(progress.completed_days + 1, 4);
 
   const handleLogout = () => {
     stopListening();
@@ -279,20 +279,63 @@ export default function Menu() {
               <p className="mt-2 text-sm text-haze">
                 4 ngày luyện tập · {progress.completed_days} ngày đã hoàn thành
               </p>
-              <div className="mt-4 grid grid-cols-4 gap-2">
-                {[1, 2, 3, 4].map((day) => (
-                  <div
-                    key={day}
-                    className={`h-12 rounded-2xl border text-center text-xs leading-[3rem] ${day <= highlightUpTo
-                        ? "border-tide bg-tide/20 text-fog"
-                        : isNewUser && day === 1
-                          ? "border-tide/60 bg-tide/10 text-fog font-semibold"
-                          : "border-tide/40 bg-transparent text-fog"
+              {progress.completed_days > 0 && (
+                <p className="mt-1 text-xs text-emerald-400">
+                  ✅ Bạn đã học xong đến ngày {progress.completed_days}
+                  {progress.completed_days < 4
+                    ? ` — đang ở ngày ${progress.current_day}`
+                    : " — Hoàn thành khóa học!"}
+                </p>
+              )}
+              <div className="mt-4 space-y-2">
+                {[1, 2, 3, 4].map((day) => {
+                  const detail = (progress.day_details || []).find((d) => d?.day === day);
+                  const isDone = !!detail;
+                  const isCurrent = day === progress.current_day && !isDone;
+                  return (
+                    <div
+                      key={day}
+                      className={`flex items-center gap-3 rounded-2xl border px-4 py-3 ${
+                        isDone
+                          ? "border-emerald-500/40 bg-emerald-500/10"
+                          : isCurrent
+                            ? "border-tide/60 bg-tide/10"
+                            : "border-white/10 bg-white/5"
                       }`}
-                  >
-                    Ngày {day}
-                  </div>
-                ))}
+                    >
+                      <div
+                        className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-bold ${
+                          isDone
+                            ? "bg-emerald-500 text-white"
+                            : isCurrent
+                              ? "bg-tide/30 text-fog"
+                              : "bg-white/10 text-haze"
+                        }`}
+                      >
+                        {isDone ? "✓" : day}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className={`text-sm font-medium ${isDone ? "text-emerald-300" : "text-fog"}`}>
+                          Ngày {day}
+                          {isDone && detail.score != null && (
+                            <span className="ml-2 rounded-full bg-emerald-500/20 px-2 py-0.5 text-xs text-emerald-300">
+                              {detail.score}/100
+                            </span>
+                          )}
+                        </p>
+                        {isDone && detail.topic && (
+                          <p className="text-xs text-haze truncate">{detail.topic}</p>
+                        )}
+                        {isCurrent && (
+                          <p className="text-xs text-tide">Đang học</p>
+                        )}
+                        {!isDone && !isCurrent && (
+                          <p className="text-xs text-haze/50">Chưa mở</p>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             </div>
             <div className="glass rounded-3xl p-6 shadow-soft">
