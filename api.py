@@ -20,6 +20,7 @@ from src.tools.schema import (
     LoginResponse,
     SignupRequest,
     SignupResponse,
+    TextToSpeechRequest,
     ValidateIntentRequest,
     ValidateIntentResponse,
 )
@@ -166,11 +167,20 @@ def chat(req: ChatRequest, request: Request) -> ChatResponse:
     if not last_ai:
         raise HTTPException(status_code=500, detail="no AI response generated")
     print(f"[API] last_ai.content={repr(last_ai.content)}", flush=True)
+    assistant_text = str(extract_clean_text(last_ai.content))
+    assistant_tts_ssml = None
+    try:
+        from src.utils.tts_utils import build_ssml
+        assistant_tts_ssml = build_ssml(assistant_text)
+        print(f"[API] assistant_tts_ssml={repr(assistant_tts_ssml)}", flush=True)
+    except Exception as exc:
+        print(f"[API] tts markup fallback: {exc}", flush=True)
 
     return ChatResponse(
         user_id=req.user_id,
         thread_id=req.thread_id,
-        assistant_message=str(extract_clean_text(last_ai.content)),
+        assistant_message=assistant_text,
+        assistant_tts_ssml=assistant_tts_ssml,
         should_exit=bool(state.get("should_exit")),
     )
 
@@ -271,25 +281,39 @@ def validate_intent(req: ValidateIntentRequest) -> ValidateIntentResponse:
         normalized_message=str(result["normalized_message"]),
     )
 
-@app.get("/tts")
-def tts_endpoint(text: str):
+@app.post("/tts")
+def tts_endpoint(req: TextToSpeechRequest):
     """Generate TTS audio via Google Cloud TTS with SSML (mixed Anh/Việt/IPA)."""
-    if not text or not text.strip():
-        raise HTTPException(status_code=400, detail="text is empty")
-    if len(text) > 2000:
-        raise HTTPException(status_code=400, detail="text too long")
     from fastapi.responses import Response
-    from src.utils.tts_utils import synthesize_speech
+    from src.utils.tts_utils import synthesize_speech, build_ssml
+
+    text = (req.text or "").strip()
+    ssml = (req.ssml or "").strip()
+
+    if not text and not ssml:
+        raise HTTPException(status_code=400, detail="text is empty")
+
     try:
-        audio_bytes = synthesize_speech(text.strip())
+        if ssml:
+            # Client sent pre-built SSML — use directly
+            audio_bytes = synthesize_speech(ssml)
+        else:
+            # Build SSML from plain text
+            audio_bytes = synthesize_speech(text)
         return Response(
             content=audio_bytes,
             media_type="audio/mpeg",
-            headers={"Cache-Control": "public, max-age=3600"},
+            headers={"Cache-Control": "no-store"},
         )
+    except ValueError as exc:
+        print(f"[TTS] Input error: {exc}", flush=True)
+        raise HTTPException(status_code=400, detail=str(exc))
     except Exception as exc:
-        print(f"[TTS] Error: {exc}", flush=True)
-        raise HTTPException(status_code=500, detail=str(exc))
+        import traceback
+        print("--- TTS ERROR ---", flush=True)
+        traceback.print_exc()
+        print("-----------------", flush=True)
+        raise HTTPException(status_code=502, detail=f"google tts failed: {exc}")
 
 if __name__ == "__main__":
     import uvicorn

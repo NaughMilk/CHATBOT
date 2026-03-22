@@ -139,7 +139,7 @@ export default function Conversation() {
   // ====== Backend TTS (Google Cloud TTS with SSML) ======
   const activeAudioRef = useRef(null);
 
-  const speakText = (text) => {
+  const speakText = (text, ssml) => {
     const t = (text || "").trim();
     if (!t) return false;
 
@@ -175,28 +175,52 @@ export default function Conversation() {
       }
     };
 
-    // Send ALL text to backend /tts → get MP3 → play
-    const encoded = encodeURIComponent(t);
-    const url = `${API_URL}/tts?text=${encoded}`;
-    const audio = new Audio(url);
-    activeAudioRef.current = audio;
+    // Send to backend POST /tts → get MP3 → play
+    fetch(`${API_URL}/tts`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        text: t,
+        ssml: ssml || null,
+        lang: "vi-VN",
+        speaking_rate: 1.0,
+      }),
+    })
+      .then((res) => {
+        if (!res.ok) throw new Error(`TTS HTTP ${res.status}`);
+        return res.blob();
+      })
+      .then((blob) => {
+        if (activeSpeechSeqRef.current !== speechSeq) return;
+        const url = URL.createObjectURL(blob);
+        const audio = new Audio(url);
+        activeAudioRef.current = audio;
 
-    audio.onended = () => {
-      if (activeSpeechSeqRef.current !== speechSeq) return;
-      finishSpeaking();
-    };
+        audio.onended = () => {
+          if (activeSpeechSeqRef.current !== speechSeq) return;
+          URL.revokeObjectURL(url);
+          finishSpeaking();
+        };
 
-    audio.onerror = () => {
-      if (activeSpeechSeqRef.current !== speechSeq) return;
-      console.warn("[TTS] Audio playback error, finishing speaking");
-      finishSpeaking();
-    };
+        audio.onerror = () => {
+          if (activeSpeechSeqRef.current !== speechSeq) return;
+          console.warn("[TTS] Audio playback error, finishing speaking");
+          URL.revokeObjectURL(url);
+          finishSpeaking();
+        };
 
-    audio.play().catch(() => {
-      if (activeSpeechSeqRef.current !== speechSeq) return;
-      console.warn("[TTS] Audio play() failed, finishing speaking");
-      finishSpeaking();
-    });
+        audio.play().catch(() => {
+          if (activeSpeechSeqRef.current !== speechSeq) return;
+          console.warn("[TTS] Audio play() failed, finishing speaking");
+          URL.revokeObjectURL(url);
+          finishSpeaking();
+        });
+      })
+      .catch((err) => {
+        console.warn("[TTS] Fetch error:", err);
+        if (activeSpeechSeqRef.current !== speechSeq) return;
+        finishSpeaking();
+      });
 
     // Fallback timer: if audio hasn't ended after approxMs, force finish
     const approxMs = Math.min(30000, Math.max(3000, t.length * 80));
@@ -290,6 +314,7 @@ export default function Conversation() {
       }
 
       const assistantText = (data && data.assistant_message) || "";
+      const assistantSsml = (data && data.assistant_tts_ssml) || null;
       if (!assistantText.trim()) {
         phaseRef.current = "idle";
         setMessages((prev) => [
@@ -303,7 +328,7 @@ export default function Conversation() {
       setMessages((prev) => [...prev, { from: "coach", text: assistantText }]);
 
       // assistant nói xong -> auto startListening trong speakText.onend
-      const spoken = speakText(assistantText);
+      const spoken = speakText(assistantText, assistantSsml);
       if (!spoken) {
         // không TTS được thì quay lại nghe luôn
         phaseRef.current = "idle";
