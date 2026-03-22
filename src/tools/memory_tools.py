@@ -72,11 +72,61 @@ def db_get_thread(user_id: str, thread_id: str) -> Dict[str, Any]:
     """Load thread state from DB."""
     return memory_store.load_thread(user_id, thread_id)
 
+def _robust_json_loads(raw: str) -> dict:
+    """Parse JSON robustly, handling extra data after the JSON object."""
+    s = (raw or "").strip()
+    if not s:
+        return {}
+    # Fast path
+    try:
+        return json.loads(s)
+    except json.JSONDecodeError:
+        pass
+    # Find first '{' and match its closing '}' with bracket counting
+    start = s.find("{")
+    if start == -1:
+        return {}
+    depth = 0
+    in_str = False
+    escape = False
+    for i in range(start, len(s)):
+        ch = s[i]
+        if escape:
+            escape = False
+            continue
+        if ch == "\\":
+            escape = True
+            continue
+        if ch == '"' and not escape:
+            in_str = not in_str
+            continue
+        if in_str:
+            continue
+        if ch == "{":
+            depth += 1
+        elif ch == "}":
+            depth -= 1
+            if depth == 0:
+                try:
+                    return json.loads(s[start:i + 1])
+                except json.JSONDecodeError:
+                    break
+    # Last resort: first { to last }
+    end = s.rfind("}")
+    if end > start:
+        try:
+            return json.loads(s[start:end + 1])
+        except json.JSONDecodeError:
+            pass
+    return {}
+
+
 @tool(args_schema=UpdateThreadFieldsInput)
 def db_update_thread_fields(user_id: str, thread_id: str, fields_json: str, fields: Optional[Dict[str, Any]] = None):
     """Update thread document fields in MongoDB using $set. Accepts either fields_json (JSON string) or fields (dict)."""
     # Support both payload styles: "fields_json" (string) or "fields" (dict)
     if fields is None:
-        fields = json.loads(fields_json) if fields_json else {}
+        fields = _robust_json_loads(fields_json) if fields_json else {}
     memory_store.update_thread_fields(user_id, thread_id, fields)
     return {"ok": True, "updated_keys": list(fields.keys())}
+

@@ -232,13 +232,18 @@ def synthesize_speech(text: str) -> bytes:
     """
     Convert text to speech audio (MP3 bytes).
     Handles mixed Vietnamese / English / IPA via SSML.
+    If text is already valid SSML (starts with <speak>), it is used directly.
     """
     text = (text or "").strip()
     if not text:
         return b""
 
     client = _get_client()
-    ssml = build_ssml(text)
+    # Detect if input is already SSML
+    if text.lstrip().startswith("<speak>") and text.rstrip().endswith("</speak>"):
+        ssml = text
+    else:
+        ssml = build_ssml(text)
     chunks = _chunk_ssml(ssml)
 
     audio_parts: List[bytes] = []
