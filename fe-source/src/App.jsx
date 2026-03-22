@@ -3,6 +3,7 @@ import Login from "./pages/Login.jsx";
 import Signup from "./pages/Signup.jsx";
 import Menu from "./pages/Menu.jsx";
 import Conversation from "./pages/Conversation.jsx";
+import ServerStatus from "./components/ServerStatus.jsx";
 
 function RequireAuth({ children }) {
   const userId = localStorage.getItem("user_id");
@@ -22,40 +23,42 @@ function BlockAuthed({ children }) {
 
 export default function App() {
   return (
-    <Routes>
-      <Route path="/" element={<Navigate to="/login" replace />} />
-      <Route
-        path="/login"
-        element={
-          <BlockAuthed>
-            <Login />
-          </BlockAuthed>
-        }
-      />
-      <Route
-        path="/signup"
-        element={
-          <BlockAuthed>
-            <Signup />
-          </BlockAuthed>
-        }
-      />
-      <Route
-        path="/menu"
-        element={
-          <RequireAuth>
-            <Menu />
-          </RequireAuth>
-        }
-      />
-      <Route
-        path="/conversation"
-        element={
-          <RequireAuth>
-            <Conversation />
-          </RequireAuth>
-        }
-      />
-    </Routes>
+    <ServerStatus>
+      <Routes>
+        <Route path="/" element={<Navigate to="/login" replace />} />
+        <Route
+          path="/login"
+          element={
+            <BlockAuthed>
+              <Login />
+            </BlockAuthed>
+          }
+        />
+        <Route
+          path="/signup"
+          element={
+            <BlockAuthed>
+              <Signup />
+            </BlockAuthed>
+          }
+        />
+        <Route
+          path="/menu"
+          element={
+            <RequireAuth>
+              <Menu />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="/conversation"
+          element={
+            <RequireAuth>
+              <Conversation />
+            </RequireAuth>
+          }
+        />
+      </Routes>
+    </ServerStatus>
   );
 }
