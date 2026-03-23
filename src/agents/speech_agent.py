@@ -736,6 +736,13 @@ def speech_step(user_id: str, thread_id: str, user_text: Optional[str] = None) -
             new_progress = _next_progress(dict(progress), plan)
             new_progress["awaiting_answer"] = True
             new_progress["attempts"] = 0
+
+            # Check if we've exhausted all phases
+            rendered = _render_one_unit(plan, new_progress)
+            if not new_progress.get("done") and "hoàn thành bài học" in (rendered or "").lower():
+                new_progress["done"] = True
+                print(f"[CALL {_call_id}] FORCED done=True (empty-expected path)", flush=True)
+
             db_update_thread_fields.invoke({
                 "user_id": user_id,
                 "thread_id": thread_id,
@@ -743,7 +750,7 @@ def speech_step(user_id: str, thread_id: str, user_text: Optional[str] = None) -
             })
             if new_progress.get("done"):
                 return "Bài hôm nay đã kết thúc. Mình đang tính điểm, bạn chờ mình một chút nhé."
-            return _render_one_unit(plan, new_progress)
+            return rendered
 
         # ===== B) Chấm điểm =====
         if progress.get("phase") == "evaluation_material" and isinstance(expected, dict) and "prompt_en" in expected:
