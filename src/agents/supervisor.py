@@ -383,19 +383,27 @@ def _max_day_index(records: List[Dict[str, Any]]) -> int:
 def evaluation_node(state: Dict[str, Any]) -> Dict[str, Any]:
     """Score conversation after speech session ends and persist record."""
     if not state.get("use_speech"):
+        print("[EVAL_NODE] skipped: use_speech=false", flush=True)
         return state
 
     user_id = state.get("user_id")
     thread_id = state.get("thread_id")
     if not user_id or not thread_id:
+        print(f"[EVAL_NODE] skipped: missing user_id={user_id} thread_id={thread_id}", flush=True)
         return state
 
-    result = evaluate_and_store_session(
-        memory_store,
-        user_id,
-        thread_id,
-        state.get("chat_history", []),
-    )
+    print(f"[EVAL_NODE] calling evaluate_and_store_session user={user_id} thread={thread_id}", flush=True)
+    try:
+        result = evaluate_and_store_session(
+            memory_store,
+            user_id,
+            thread_id,
+            state.get("chat_history", []),
+        )
+        print(f"[EVAL_NODE] result={result}", flush=True)
+    except Exception as exc:
+        print(f"[EVAL_NODE] ERROR: {exc}", flush=True)
+        return state
 
     if result.get("ok") and result.get("message"):
         new_state = dict(state)

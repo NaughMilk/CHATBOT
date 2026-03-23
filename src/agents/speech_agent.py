@@ -313,7 +313,6 @@ def _get_expected_for_step(plan: Dict[str, Any], progress: Dict[str, Any]) -> Di
         
         # Nếu đang ở phần kiểm tra từ vựng
         if idx < len(vocab_qs):
-            # Trả về object câu hỏi từ vựng
             return vocab_qs[idx] 
         
         # Nếu đã sang phần nghe hiểu
@@ -321,6 +320,12 @@ def _get_expected_for_step(plan: Dict[str, Any], progress: Dict[str, Any]) -> Di
         listen_qs = ev.get("listening_questions") or []
         if l_idx < len(listen_qs):
             return listen_qs[l_idx]
+        
+        # Nếu đã sang phần nói (speaking_prompt)
+        sp_idx = idx - len(vocab_qs) - len(listen_qs)
+        sp_qs = ev.get("speaking_prompt") or []
+        if sp_idx < len(sp_qs):
+            return sp_qs[sp_idx]
             
     # Thêm phần cho learn_conversation
     if phase == "learn_conversation":
@@ -527,13 +532,11 @@ def _render_one_unit(plan: Dict[str, Any], progress: Dict[str, Any]) -> str:
             )
 
         # --- PHẦN 2: KIỂM TRA NGHE HIỂU (PASSAGE) ---
-        # Tính toán index thực tế trong mảng listening_questions
         l_idx = idx - total_vocab_len
         
-        if l_idx < len(listen_qs):
+        if l_idx < total_listen_len:
             q = listen_qs[l_idx]
             header = ""
-            # Nếu vừa chuyển từ từ vựng sang bài nghe (câu hỏi nghe đầu tiên)
             if l_idx == 0:
                 header = (
                     f"Tốt lắm. Bây giờ sang phần 2: Nghe hiểu.\n"
@@ -549,6 +552,24 @@ def _render_one_unit(plan: Dict[str, Any], progress: Dict[str, Any]) -> str:
                 return f"{header}{q.get('q_en')}\n{options}\nBạn chọn đáp án nào?"
             
             return f"{header}{q.get('q_en')}\n\nBạn hãy trả lời bằng tiếng Anh nhé."
+
+        # --- PHẦN 3: KIỂM TRA NÓI (SPEAKING PROMPT) ---
+        sp_idx = idx - total_vocab_len - total_listen_len
+        if sp_idx < len(sp_qs):
+            sp = sp_qs[sp_idx]
+            header = ""
+            if sp_idx == 0:
+                header = "Tốt lắm. Bây giờ sang phần 3: Luyện nói.\n"
+            phrases = sp.get("useful_phrases") or []
+            hints = ""
+            if phrases:
+                hints = "\nGợi ý: " + ", ".join(p.get("phrase_vi_en", "") for p in phrases[:3])
+            return (
+                f"{header}{sp.get('prompt_vi', '')}\n"
+                f"{sp.get('prompt_en', '')}"
+                f"{hints}\n\n"
+                f"Bạn hãy trả lời bằng tiếng Anh nhé."
+            )
 
         return "Bạn đã hoàn thành bài học!"
 

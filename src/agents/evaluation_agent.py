@@ -193,6 +193,7 @@ def evaluate_and_store_session(
 
     thread_blob = memory_store.load_thread(user_id, thread_id) or {}
     speech_progress = thread_blob.get("speech_progress") or {}
+    print(f"[EVAL] speech_progress.done={speech_progress.get('done')} phase={speech_progress.get('phase')}", flush=True)
     if not speech_progress.get("done"):
         return {"ok": False, "message": ""}
 
@@ -206,6 +207,7 @@ def evaluate_and_store_session(
         and int(last_logged.get("day_index") or 0) == day_index
         and int(last_logged.get("attempt") or 0) == current_attempts
     )
+    print(f"[EVAL] day={day_index} attempts={current_attempts} already_logged={already_logged}", flush=True)
     if already_logged:
         return {"ok": False, "message": ""}
 
