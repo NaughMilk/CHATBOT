@@ -813,6 +813,14 @@ def speech_step(user_id: str, thread_id: str, user_text: Optional[str] = None) -
             if not hopped:
                 new_progress["done"] = True
                 next_unit = ""
+
+        # If next_unit is the terminal completion message but done is not set,
+        # force completion (happens when evaluation_material is empty/missing)
+        if not new_progress.get("done") and "hoàn thành bài học" in (next_unit or "").lower():
+            new_progress["done"] = True
+            next_unit = ""
+            print(f"[CALL {_call_id}] FORCED done=True (eval_material empty)", flush=True)
+
         db_update_thread_fields.invoke({
             "user_id": user_id,
             "thread_id": thread_id,
