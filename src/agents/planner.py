@@ -59,6 +59,15 @@ HARD RULES:
      day4 = 125
    (±5 words allowed)
 
+   MINIMUM CONTENT REQUIREMENTS (MANDATORY - do NOT generate less than these amounts):
+     - learn_vocab: at least 3 words (day1), 4 words (day2), 5 words (day3-4)
+     - learn_grammar: at least 1 structure with at least 2 examples each
+     - learn_conversation: at least 3 steps (dialogue turns)
+     - evaluation_material.vi_to_en_vocab: at least 2 MCQ questions
+     - evaluation_material.listening_questions: at least 1 question
+     - evaluation_material.speaking_prompt: at least 1 prompt
+     - evaluation_material.passage: MUST include a short reading passage
+
    Do NOT create any fill-in-the-blank exercises (no "fill in the blank", no "______").
 
    ONLY create listen-and-repeat exercises for:
