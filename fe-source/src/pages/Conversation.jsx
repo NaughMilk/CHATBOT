@@ -522,21 +522,8 @@ export default function Conversation() {
 
         const data = await res.json();
 
-        if (data.completed_today && data.has_rubric) {
-          if (doneRef.current) return;
-
-          doneRef.current = true;
-          const msg = "Hôm nay bạn đã học xong rồi. Hẹn bạn vào ngày mai nhé!";
-
-          setLocked(true);
-          lockedRef.current = true;
-          autoListenRef.current = false;
-
-          stopListening();
-          setMessages((prev) => [...prev, { from: "coach", text: msg }]);
-          speakText(msg);
-          return;
-        }
+        // Allow users to continue learning next day immediately
+        // (daily lock removed — progression is handled by current_day)
 
         if (!greetedRef.current) {
           greetedRef.current = true;
